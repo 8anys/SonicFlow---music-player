@@ -7,6 +7,7 @@ import { withPopularFallback } from '@/data/popularMusic';
 import { searchITunesTracks } from '@/api/itunesMusic';
 import { searchSpotifyTracks } from '@/api/spotify';
 import { usePlayer } from '@/lib/PlayerContext';
+import { searchAudiusTracks } from '@/api/audiusMusic';
 
 const GENRES = ['all', 'pop', 'rock', 'hip-hop', 'electronic', 'r&b', 'jazz', 'indie', 'latin'];
 
@@ -27,6 +28,12 @@ export default function Discover() {
     staleTime: 1000 * 60 * 30,
   });
 
+  const { data: audiusTracks = [] } = useQuery({
+    queryKey: ['audius-search', searchQuery],
+    queryFn: () => searchAudiusTracks(searchQuery || 'top songs', 40),
+    staleTime: 1000 * 60 * 20,
+  });
+
   const { data: spotifyTracks = [] } = useQuery({
     queryKey: ['spotify-search', searchQuery, spotifyConnected],
     queryFn: () => searchSpotifyTracks(searchQuery || 'top songs', 40),
@@ -34,7 +41,7 @@ export default function Discover() {
     staleTime: 1000 * 60 * 10,
   });
 
-  const musicCatalog = withPopularFallback([...spotifyTracks, ...tracks, ...streamingTracks], 20);
+  const musicCatalog = withPopularFallback([...spotifyTracks, ...tracks, ...audiusTracks, ...streamingTracks], 20);
 
   const filtered = musicCatalog.filter(t => {
     const genreMatch = genre === 'all' || t.genre === genre;
@@ -51,6 +58,9 @@ export default function Discover() {
         </p>
         {spotifyConnected && (
           <p className="text-xs text-primary mt-1">Spotify streaming is connected</p>
+        )}
+        {!spotifyConnected && (
+          <p className="text-xs text-primary mt-1">Free full-track streaming is powered by Audius</p>
         )}
         {spotifyError && (
           <p className="text-xs text-destructive mt-1">{spotifyError}</p>

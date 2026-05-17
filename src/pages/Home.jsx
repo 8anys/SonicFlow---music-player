@@ -10,6 +10,7 @@ import AlbumCard from '@/components/music/AlbumCard';
 import SectionHeader from '@/components/music/SectionHeader';
 import { withPopularFallback } from '@/data/popularMusic';
 import { getPopularPreviewTracks } from '@/api/itunesMusic';
+import { getAudiusTrendingTracks } from '@/api/audiusMusic';
 
 export default function Home() {
   const { playTrack } = usePlayer();
@@ -23,6 +24,12 @@ export default function Home() {
     queryKey: ['itunes-popular-preview-tracks'],
     queryFn: getPopularPreviewTracks,
     staleTime: 1000 * 60 * 60,
+  });
+
+  const { data: audiusTracks = [] } = useQuery({
+    queryKey: ['audius-trending-tracks'],
+    queryFn: () => getAudiusTrendingTracks(30),
+    staleTime: 1000 * 60 * 20,
   });
 
   const { data: artists = [] } = useQuery({
@@ -40,7 +47,7 @@ export default function Home() {
     queryFn: () => base44.entities.Playlist.list('-created_date', 6),
   });
 
-  const musicCatalog = withPopularFallback([...tracks, ...previewTracks], 12);
+  const musicCatalog = withPopularFallback([...tracks, ...audiusTracks, ...previewTracks], 12);
   const trending = musicCatalog.filter(t => t.is_trending).slice(0, 8);
   const topTracks = musicCatalog.slice(0, 10);
 
