@@ -8,6 +8,8 @@ import TrackCard from '@/components/music/TrackCard';
 import ArtistCard from '@/components/music/ArtistCard';
 import AlbumCard from '@/components/music/AlbumCard';
 import SectionHeader from '@/components/music/SectionHeader';
+import { withPopularFallback } from '@/data/popularMusic';
+import { getPopularPreviewTracks } from '@/api/itunesMusic';
 
 export default function Home() {
   const { playTrack } = usePlayer();
@@ -15,6 +17,12 @@ export default function Home() {
   const { data: tracks = [] } = useQuery({
     queryKey: ['tracks-home'],
     queryFn: () => base44.entities.Track.list('-plays', 20),
+  });
+
+  const { data: previewTracks = [] } = useQuery({
+    queryKey: ['itunes-popular-preview-tracks'],
+    queryFn: getPopularPreviewTracks,
+    staleTime: 1000 * 60 * 60,
   });
 
   const { data: artists = [] } = useQuery({
@@ -32,8 +40,9 @@ export default function Home() {
     queryFn: () => base44.entities.Playlist.list('-created_date', 6),
   });
 
-  const trending = tracks.filter(t => t.is_trending).slice(0, 8);
-  const topTracks = tracks.slice(0, 8);
+  const musicCatalog = withPopularFallback([...tracks, ...previewTracks], 12);
+  const trending = musicCatalog.filter(t => t.is_trending).slice(0, 8);
+  const topTracks = musicCatalog.slice(0, 10);
 
   return (
     <div className="p-4 md:p-6 space-y-8">
@@ -117,7 +126,7 @@ export default function Home() {
       )}
 
       {/* Empty state */}
-      {tracks.length === 0 && artists.length === 0 && albums.length === 0 && (
+      {musicCatalog.length === 0 && artists.length === 0 && albums.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center mb-4">
             <Play className="w-8 h-8 text-primary" />

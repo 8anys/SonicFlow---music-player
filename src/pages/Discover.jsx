@@ -3,6 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TrackCard from '@/components/music/TrackCard';
+import { withPopularFallback } from '@/data/popularMusic';
+import { searchITunesTracks } from '@/api/itunesMusic';
+import { searchSpotifyTracks } from '@/api/spotify';
+import { usePlayer } from '@/lib/PlayerContext';
 
 const GENRES = ['all', 'pop', 'rock', 'hip-hop', 'electronic', 'r&b', 'jazz', 'indie', 'latin'];
 
@@ -10,13 +14,29 @@ export default function Discover() {
   const [genre, setGenre] = useState('all');
   const params = new URLSearchParams(window.location.search);
   const searchQuery = params.get('q') || '';
+  const { spotifyConnected, spotifyError } = usePlayer();
 
   const { data: tracks = [] } = useQuery({
     queryKey: ['tracks-discover'],
     queryFn: () => base44.entities.Track.list('-plays', 50),
   });
 
-  const filtered = tracks.filter(t => {
+  const { data: streamingTracks = [] } = useQuery({
+    queryKey: ['itunes-search', searchQuery],
+    queryFn: () => searchITunesTracks(searchQuery || 'top songs', 30),
+    staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: spotifyTracks = [] } = useQuery({
+    queryKey: ['spotify-search', searchQuery, spotifyConnected],
+    queryFn: () => searchSpotifyTracks(searchQuery || 'top songs', 40),
+    enabled: spotifyConnected,
+    staleTime: 1000 * 60 * 10,
+  });
+
+  const musicCatalog = withPopularFallback([...spotifyTracks, ...tracks, ...streamingTracks], 20);
+
+  const filtered = musicCatalog.filter(t => {
     const genreMatch = genre === 'all' || t.genre === genre;
     const searchMatch = !searchQuery || t.title?.toLowerCase().includes(searchQuery.toLowerCase()) || t.artist_name?.toLowerCase().includes(searchQuery.toLowerCase());
     return genreMatch && searchMatch;
@@ -29,6 +49,12 @@ export default function Discover() {
         <p className="text-sm text-muted-foreground">
           {searchQuery ? `Results for "${searchQuery}"` : 'Explore new music by genre'}
         </p>
+        {spotifyConnected && (
+          <p className="text-xs text-primary mt-1">Spotify streaming is connected</p>
+        )}
+        {spotifyError && (
+          <p className="text-xs text-destructive mt-1">{spotifyError}</p>
+        )}
       </div>
 
       <Tabs value={genre} onValueChange={setGenre}>

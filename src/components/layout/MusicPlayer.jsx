@@ -17,8 +17,12 @@ export default function MusicPlayer() {
   } = usePlayer();
 
   const intervalRef = useRef(null);
+  const audioRef = useRef(null);
+  const audioSrc = currentTrack?.spotify_uri ? '' : currentTrack?.audio_url || currentTrack?.preview_url;
 
   useEffect(() => {
+    if (audioSrc) return;
+
     if (isPlaying && currentTrack) {
       intervalRef.current = setInterval(() => {
         setProgress(prev => {
@@ -32,14 +36,64 @@ export default function MusicPlayer() {
       }, 1000);
     }
     return () => clearInterval(intervalRef.current);
-  }, [isPlaying, currentTrack, nextTrack, setProgress]);
+  }, [isPlaying, currentTrack, nextTrack, setProgress, audioSrc]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioSrc) return;
+
+    audio.volume = volume / 100;
+  }, [volume, audioSrc]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioSrc) return;
+
+    if (audio.src !== audioSrc) {
+      audio.src = audioSrc;
+      audio.load();
+    }
+
+    if (isPlaying) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [audioSrc, isPlaying, currentTrack]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioSrc) return;
+
+    const handleTimeUpdate = () => setProgress(audio.currentTime);
+    const handleLoadedMetadata = () => setProgress(0);
+    const handleEnded = () => nextTrack();
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, [audioSrc, nextTrack, setProgress]);
 
   if (!currentTrack) return null;
 
-  const duration = currentTrack.duration || 210;
+  const duration = audioRef.current?.duration || currentTrack.duration || 210;
+
+  const handleSeek = ([value]) => {
+    setProgress(value);
+    if (audioRef.current && audioSrc) {
+      audioRef.current.currentTime = value;
+    }
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-20 glass-strong z-50 flex items-center px-4 md:px-6 gap-4">
+      {audioSrc && <audio ref={audioRef} preload="metadata" />}
       {/* Track Info */}
       <div className="flex items-center gap-3 w-56 min-w-0 flex-shrink-0">
         <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-secondary">
@@ -51,7 +105,9 @@ export default function MusicPlayer() {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{currentTrack.title}</p>
-          <p className="text-xs text-muted-foreground truncate">{currentTrack.artist_name}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {currentTrack.artist_name}{currentTrack.source_name ? ` · ${currentTrack.source_name}` : ''}
+          </p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary flex-shrink-0">
           <Heart className="w-4 h-4" />
@@ -87,7 +143,7 @@ export default function MusicPlayer() {
             value={[progress]}
             max={duration}
             step={1}
-            onValueChange={([v]) => setProgress(v)}
+            onValueChange={handleSeek}
             className="flex-1"
           />
           <span className="text-[10px] text-muted-foreground w-8">{formatTime(duration)}</span>

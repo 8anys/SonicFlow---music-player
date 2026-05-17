@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, Settings, Menu, User } from 'lucide-react';
+import { Search, Bell, Settings, Menu, User, Music2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
+import { usePlayer } from '@/lib/PlayerContext';
 
 export default function TopBar({ onMenuToggle }) {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const { spotifyConnected, spotifyConfigured, loginSpotify, logoutSpotify } = usePlayer();
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -36,6 +38,17 @@ export default function TopBar({ onMenuToggle }) {
       </div>
 
       <div className="flex items-center gap-2">
+        {spotifyConfigured && (
+          <Button
+            variant={spotifyConnected ? 'secondary' : 'outline'}
+            size="sm"
+            className="hidden sm:inline-flex gap-2"
+            onClick={spotifyConnected ? logoutSpotify : loginSpotify}
+          >
+            <Music2 className="w-4 h-4" />
+            {spotifyConnected ? 'Spotify On' : 'Connect Spotify'}
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
           <Bell className="w-[18px] h-[18px]" />
         </Button>
