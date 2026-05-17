@@ -37,8 +37,7 @@ npm.cmd install
 ```bash
 npm run dev
 ```
-
-Для PowerShell:
+Або, якщо не працює, то
 
 ```bash
 npm.cmd run dev
