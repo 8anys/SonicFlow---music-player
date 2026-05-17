@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TrackCard from '@/components/music/TrackCard';
 import { withPopularFallback } from '@/data/popularMusic';
@@ -8,6 +7,7 @@ import { searchITunesTracks } from '@/api/itunesMusic';
 import { searchSpotifyTracks } from '@/api/spotify';
 import { usePlayer } from '@/lib/PlayerContext';
 import { searchAudiusTracks } from '@/api/audiusMusic';
+import { getDatabaseTracks } from '@/api/databaseMusic';
 
 const GENRES = ['all', 'pop', 'rock', 'hip-hop', 'electronic', 'r&b', 'jazz', 'indie', 'latin'];
 
@@ -18,8 +18,8 @@ export default function Discover() {
   const { spotifyConnected, spotifyError } = usePlayer();
 
   const { data: tracks = [] } = useQuery({
-    queryKey: ['tracks-discover'],
-    queryFn: () => base44.entities.Track.list('-plays', 50),
+    queryKey: ['tracks-discover', searchQuery, genre],
+    queryFn: () => getDatabaseTracks({ query: searchQuery, genre, limit: 50 }).catch(() => []),
   });
 
   const { data: streamingTracks = [] } = useQuery({

@@ -1,6 +1,5 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePlayer } from '@/lib/PlayerContext';
@@ -11,13 +10,14 @@ import SectionHeader from '@/components/music/SectionHeader';
 import { withPopularFallback } from '@/data/popularMusic';
 import { getPopularPreviewTracks } from '@/api/itunesMusic';
 import { getAudiusTrendingTracks } from '@/api/audiusMusic';
+import { getDatabaseAlbums, getDatabaseArtists, getDatabasePlaylists, getDatabaseTracks } from '@/api/databaseMusic';
 
 export default function Home() {
   const { playTrack } = usePlayer();
 
   const { data: tracks = [] } = useQuery({
     queryKey: ['tracks-home'],
-    queryFn: () => base44.entities.Track.list('-plays', 20),
+    queryFn: () => getDatabaseTracks({ limit: 20 }).catch(() => []),
   });
 
   const { data: previewTracks = [] } = useQuery({
@@ -34,17 +34,17 @@ export default function Home() {
 
   const { data: artists = [] } = useQuery({
     queryKey: ['artists-home'],
-    queryFn: () => base44.entities.Artist.list('-followers', 10),
+    queryFn: () => getDatabaseArtists(10).catch(() => []),
   });
 
   const { data: albums = [] } = useQuery({
     queryKey: ['albums-home'],
-    queryFn: () => base44.entities.Album.list('-created_date', 10),
+    queryFn: () => getDatabaseAlbums(10).catch(() => []),
   });
 
   const { data: playlists = [] } = useQuery({
     queryKey: ['playlists-home'],
-    queryFn: () => base44.entities.Playlist.list('-created_date', 6),
+    queryFn: () => getDatabasePlaylists(6).catch(() => []),
   });
 
   const musicCatalog = withPopularFallback([...tracks, ...audiusTracks, ...previewTracks], 12);
@@ -125,7 +125,9 @@ export default function Home() {
                   {pl.cover_url && <img src={pl.cover_url} alt="" className="w-full h-full object-cover" />}
                 </div>
                 <p className="text-sm font-semibold truncate">{pl.name}</p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{pl.description || 'Playlist'}</p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {pl.tracks_count ?? pl.track_ids?.length ?? 0} tracks
+                </p>
               </a>
             ))}
           </div>

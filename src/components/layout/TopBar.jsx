@@ -4,7 +4,6 @@ import { Search, Bell, Settings, Menu, User, Music2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '@/lib/PlayerContext';
 
@@ -66,7 +65,7 @@ export default function TopBar({ onMenuToggle }) {
             <DropdownMenuItem asChild><Link to="/favorites">My Favorites</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/playlists">My Playlists</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => base44.auth.logout()} className="text-destructive">Logout</DropdownMenuItem>
+            <DropdownMenuItem className="text-muted-foreground">Local mode</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

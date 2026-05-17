@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Plus, ListMusic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { getDatabasePlaylists } from '@/api/databaseMusic';
 
 export default function Playlists() {
   const params = new URLSearchParams(window.location.search);
@@ -17,11 +17,13 @@ export default function Playlists() {
 
   const { data: playlists = [] } = useQuery({
     queryKey: ['playlists-all'],
-    queryFn: () => base44.entities.Playlist.list('-created_date', 50),
+    queryFn: () => getDatabasePlaylists(50).catch(() => []),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Playlist.create(data),
+    mutationFn: async () => {
+      throw new Error('Playlist creation is not connected in local mode yet');
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playlists-all'] });
       queryClient.invalidateQueries({ queryKey: ['playlists-sidebar'] });
@@ -54,7 +56,7 @@ export default function Playlists() {
               )}
             </div>
             <p className="text-sm font-semibold truncate">{pl.name}</p>
-            <p className="text-xs text-muted-foreground truncate mt-0.5">{pl.track_ids?.length || 0} tracks</p>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{pl.tracks_count ?? pl.track_ids?.length ?? 0} tracks</p>
           </Link>
         ))}
       </div>

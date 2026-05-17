@@ -1,126 +1,160 @@
 ﻿# SonicFlow
 
-Інструкція для запуску React/Vite проєкту SonicFlow.
+Інструкція для запуску SonicFlow з PostgreSQL, Python Flask backend і React/Vite frontend.
 
 ## Вимоги
 
-Проєкт запускається з такими інструментами:
-
 - Node.js 18+
 - npm
+- Python 3.10+
+- PostgreSQL
 
-Перевірка версій:
+Перевірка:
 
 ```bash
 node -v
 npm -v
+python --version
 ```
 
-## Встановлення залежностей
+## База даних
 
-Команда виконується в корені проєкту:
-
-```bash
-npm install
-```
-
-Якщо запуск відбувається через PowerShell і з'являється помилка про `npm.ps1`, використовується команда:
-
-```bash
-npm.cmd install
-```
-
-## Запуск проєкту
-
-Команда для запуску локального сервера:
-
-```bash
-npm run dev
-```
-Або, якщо не працює, то
-
-```bash
-npm.cmd run dev
-```
-
-Після запуску сайт відкривається за адресою:
+У PostgreSQL створюється база даних:
 
 ```text
-http://127.0.0.1:5173/
+sonicflow
 ```
 
-## Spotify streaming
+Таблиці створюються автоматично під час запуску backend.
 
-Для реального стримінгу використовується Spotify Web Playback SDK.
-
-У Spotify Developer Dashboard створюється застосунок:
+Схема бази даних:
 
 ```text
-https://developer.spotify.com/dashboard
+database/schema.sql
 ```
 
-У налаштуваннях застосунку додається Redirect URI:
+Початкові дані:
 
 ```text
-http://127.0.0.1:5173/
+database/seed.sql
 ```
 
-У корені проєкту створюється файл `.env` на основі `.env.example`:
+Схема нормалізована до третьої нормальної форми:
+
+- `users`
+- `artists`
+- `genres`
+- `albums`
+- `tracks`
+- `track_artists`
+- `playlists`
+- `playlist_tracks`
+- `liked_tracks`
+- `recent_plays`
+
+## Файл `.env`
+
+У корені проєкту створюється файл `.env`.
+
+Основний варіант підключення:
 
 ```bash
+DATABASE_URL=postgres://postgres:your_postgres_password@127.0.0.1:5432/sonicflow
+FLASK_SECRET_KEY=sonicflow-secret
 VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id
 VITE_SPOTIFY_REDIRECT_URI=http://127.0.0.1:5173/
 ```
 
-Після зміни `.env` сервер перезапускається:
+Spotify-змінні потрібні тільки для Spotify Web Playback SDK. Без них сайт також запускається.
+
+Альтернативний варіант підключення до PostgreSQL:
+
+```bash
+PGHOST=127.0.0.1
+PGPORT=5432
+PGDATABASE=sonicflow
+PGUSER=postgres
+PGPASSWORD=your_postgres_password
+FLASK_SECRET_KEY=sonicflow-secret
+```
+
+## Python backend
+
+У першому терміналі:
+
+```bash
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python app.py
+```
+
+Backend запускається за адресою:
+
+```text
+http://127.0.0.1:5000/
+```
+
+Під час запуску backend:
+
+- підключається до PostgreSQL
+- створює таблиці, якщо їх ще немає
+- додає початкові дані
+- запускає API `/db-api`
+
+## Frontend
+
+У другому терміналі:
+
+```bash
+npm.cmd install
+npm.cmd run dev
+```
+
+Сайт відкривається за адресою:
+
+```text
+http://127.0.0.1:5173/
+```
+
+Frontend звертається до backend через:
+
+```text
+/db-api
+```
+
+## Повторний запуск
+
+Якщо залежності вже встановлені, для повторного запуску достатньо:
+
+Перший термінал:
+
+```bash
+.\.venv\Scripts\Activate.ps1
+python app.py
+```
+
+Другий термінал:
 
 ```bash
 npm.cmd run dev
 ```
 
-У додатку натискається кнопка `Connect Spotify`. Після входу через Spotify сторінка `Discover` шукає треки в реальному каталозі Spotify, а плеєр запускає їх через Spotify Web Playback SDK.
-
-Для відтворення повних треків потрібен Spotify Premium акаунт.
-
-## Free streaming
-
-Без Spotify Premium у проєкті використовується Audius API.
-
-Audius дає легальний streaming повних треків незалежних артистів без авторизації користувача. Головна сторінка і сторінка `Discover` автоматично підтягують треки з Audius.
-
-Spotify залишається додатковим режимом для користувачів з Premium.
-
 ## Збірка
 
-Команда для створення production-збірки:
-
 ```bash
-npm run build
+npm.cmd run build
 ```
 
-Зібраний проєкт створюється в папці `dist`.
+Готова збірка створюється в папці:
 
-## Перегляд зібраного проєкту
-
-```bash
-npm run preview
+```text
+dist
 ```
 
-## Перевірка коду
+## Streaming
 
-```bash
-npm run lint
-```
+Без Spotify Premium використовується Audius API для легального streaming повних треків незалежних артистів.
 
-Автоматичне виправлення частини помилок:
+Spotify Web Playback SDK залишається додатковим режимом. Для повного відтворення Spotify-треків потрібен Spotify Premium акаунт.
 
-```bash
-npm run lint:fix
-```
-
-## Технології
-
-- React 18
-- Vite
-- Tailwind CSS
-- Base44 Vite Plugin

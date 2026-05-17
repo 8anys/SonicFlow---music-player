@@ -1,12 +1,12 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import AlbumCard from '@/components/music/AlbumCard';
+import { getDatabaseAlbums } from '@/api/databaseMusic';
 
 export default function Albums() {
   const { data: albums = [], isLoading } = useQuery({
     queryKey: ['albums-all'],
-    queryFn: () => base44.entities.Album.list('-created_date', 50),
+    queryFn: () => getDatabaseAlbums(50).catch(() => []),
   });
 
   return (

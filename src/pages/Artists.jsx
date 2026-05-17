@@ -1,12 +1,12 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import ArtistCard from '@/components/music/ArtistCard';
+import { getDatabaseArtists } from '@/api/databaseMusic';
 
 export default function Artists() {
   const { data: artists = [], isLoading } = useQuery({
     queryKey: ['artists-all'],
-    queryFn: () => base44.entities.Artist.list('-followers', 50),
+    queryFn: () => getDatabaseArtists(50).catch(() => []),
   });
 
   return (

@@ -2,9 +2,9 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Compass, Disc3, Users, ListMusic, Heart, Clock, Plus, Music2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getDatabasePlaylists } from '@/api/databaseMusic';
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
@@ -21,7 +21,7 @@ export default function Sidebar({ className = '' }) {
 
   const { data: playlists = [] } = useQuery({
     queryKey: ['playlists-sidebar'],
-    queryFn: () => base44.entities.Playlist.list('-created_date', 10),
+    queryFn: () => getDatabasePlaylists(10).catch(() => []),
   });
 
   return (
@@ -31,7 +31,7 @@ export default function Sidebar({ className = '' }) {
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
           <Music2 className="w-5 h-5 text-white" />
         </div>
-        <span className="text-lg font-bold text-foreground tracking-tight">Melodify</span>
+        <span className="text-lg font-bold text-foreground tracking-tight">SonicFlow</span>
       </div>
 
       <ScrollArea className="flex-1 px-3">

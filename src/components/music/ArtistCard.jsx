@@ -1,22 +1,25 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Play } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 
-export default function AlbumCard({ album }) {
+export default function ArtistCard({ artist }) {
+  if (!artist) return null;
+
   return (
-    <Link to={`/album/${album.id}`} className="group relative rounded-xl bg-secondary/40 hover:bg-secondary/70 p-3 transition-all duration-300 cursor-pointer">
-      <div className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-secondary">
-        {album.cover_url ? (
-          <img src={album.cover_url} alt={album.title} className="w-full h-full object-cover" />
+    <Link to={`/artist/${artist.id}`} className="group relative rounded-xl bg-secondary/40 hover:bg-secondary/70 p-3 transition-all duration-300 cursor-pointer min-w-[150px]">
+      <div className="relative aspect-square rounded-full overflow-hidden mb-3 bg-secondary">
+        {artist.image_url ? (
+          <img src={artist.image_url} alt={artist.name} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-purple-500/30 to-blue-500/30" />
+          <div className="w-full h-full bg-gradient-to-br from-purple-500/30 to-blue-500/30 flex items-center justify-center">
+            <UserRound className="w-10 h-10 text-primary/60" />
+          </div>
         )}
-        <div className="absolute bottom-2 right-2 w-10 h-10 rounded-full bg-primary shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-          <Play className="w-4 h-4 text-primary-foreground ml-0.5" />
-        </div>
       </div>
-      <p className="text-sm font-semibold truncate">{album.title}</p>
-      <p className="text-xs text-muted-foreground truncate mt-0.5">{album.artist_name}{album.release_year ? ` · ${album.release_year}` : ''}</p>
+      <p className="text-sm font-semibold truncate text-center">{artist.name}</p>
+      <p className="text-xs text-muted-foreground truncate mt-0.5 text-center">
+        {artist.followers ? `${artist.followers.toLocaleString()} followers` : 'Artist'}
+      </p>
     </Link>
   );
 }

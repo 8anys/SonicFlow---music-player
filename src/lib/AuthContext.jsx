@@ -22,6 +22,20 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
+
+      if (!appParams.appId || appParams.appId === 'null') {
+        setAppPublicSettings({ id: 'local', public_settings: {} });
+        setUser({
+          id: 'local-user',
+          email: 'local@sonicflow.test',
+          full_name: 'Local User',
+        });
+        setIsAuthenticated(true);
+        setAuthChecked(true);
+        setIsLoadingPublicSettings(false);
+        setIsLoadingAuth(false);
+        return;
+      }
       
       // First, check app public settings (with token if available)
       // This will tell us if auth is required, user not registered, etc.
