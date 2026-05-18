@@ -1,0 +1,16 @@
+{
+  "name": "SonicFlow",
+  "short_name": "SonicFlow",
+  "description": "SonicFlow music streaming platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    {
+      "src": "/sonicflow-logo.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml"
+    }
+  ]
+}
