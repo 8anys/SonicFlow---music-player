@@ -188,3 +188,39 @@ dist
 
 Spotify Web Playback SDK залишається додатковим режимом. Для повного відтворення Spotify-треків потрібен Spotify Premium акаунт.
 
+## Google авторизація
+
+Для входу через Google створюється OAuth Client ID у Google Cloud Console:
+
+```text
+https://console.cloud.google.com/apis/credentials
+```
+
+Тип застосунку:
+
+```text
+Web application
+```
+
+Authorized JavaScript origins:
+
+```text
+http://127.0.0.1:5173
+```
+
+Client ID додається у `.env`:
+
+```bash
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+```
+
+Після зміни `.env` перезапускаються backend і frontend:
+
+```bash
+python app.py
+```
+
+```bash
+npm.cmd run dev
+```
+

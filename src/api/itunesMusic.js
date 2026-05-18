@@ -23,6 +23,7 @@ function mapTrack(result) {
     title: result.trackName,
     artist_name: result.artistName,
     album_name: result.collectionName,
+    release_year: result.releaseDate ? new Date(result.releaseDate).getFullYear() : undefined,
     genre: result.primaryGenreName?.toLowerCase() || 'pop',
     duration: Math.round((result.trackTimeMillis || 210000) / 1000),
     plays: 0,

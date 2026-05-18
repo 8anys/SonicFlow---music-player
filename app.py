@@ -64,6 +64,13 @@ def initialize_database():
         with connection.cursor() as cursor:
             run_sql_file(cursor, "schema.sql")
             run_sql_file(cursor, "seed.sql")
+            cursor.execute(
+                """
+                UPDATE users
+                SET auth_provider = 'local'
+                WHERE auth_provider IS NULL
+                """
+            )
 
 
 def fetch_all(sql, params=None):
@@ -91,6 +98,7 @@ def map_track(row):
         "title": row["title"],
         "artist_name": row["artist_name"],
         "album_name": row["album_name"],
+        "release_year": row.get("release_year"),
         "genre": row["genre"],
         "duration": row["duration_seconds"],
         "audio_url": row["audio_url"],
@@ -100,6 +108,109 @@ def map_track(row):
         "plays": row["plays_count"],
         "is_trending": row["is_trending"],
     }
+
+
+def ensure_genre(cursor, genre_name):
+    genre = (genre_name or "unknown").strip().lower() or "unknown"
+    cursor.execute(
+        """
+        INSERT INTO genres (name)
+        VALUES (%s)
+        ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+        """,
+        [genre],
+    )
+    return cursor.fetchone()["id"]
+
+
+def ensure_artist(cursor, artist_name):
+    name = (artist_name or "Unknown Artist").strip() or "Unknown Artist"
+    cursor.execute(
+        """
+        INSERT INTO artists (name)
+        VALUES (%s)
+        ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+        """,
+        [name],
+    )
+    return cursor.fetchone()["id"]
+
+
+def ensure_track(cursor, track_data):
+    raw_id = str(track_data.get("id", ""))
+    if raw_id.isdigit():
+        cursor.execute("SELECT id FROM tracks WHERE id = %s", [int(raw_id)])
+        existing = cursor.fetchone()
+        if existing:
+            return existing["id"]
+
+    title = (track_data.get("title") or "Untitled").strip()
+    artist_name = (track_data.get("artist_name") or "Unknown Artist").strip()
+    source_name = track_data.get("source_name") or "SonicFlow"
+    source_url = track_data.get("source_url")
+
+    cursor.execute(
+        """
+        SELECT tracks.id
+        FROM tracks
+        JOIN track_artists ON track_artists.track_id = tracks.id
+        JOIN artists ON artists.id = track_artists.artist_id
+        WHERE tracks.title = %s
+          AND artists.name = %s
+          AND COALESCE(tracks.source_name, '') = COALESCE(%s, '')
+        LIMIT 1
+        """,
+        [title, artist_name, source_name],
+    )
+    existing = cursor.fetchone()
+    if existing:
+        return existing["id"]
+
+    genre_id = ensure_genre(cursor, track_data.get("genre"))
+    artist_id = ensure_artist(cursor, artist_name)
+
+    cursor.execute(
+        """
+        INSERT INTO tracks (
+          title,
+          genre_id,
+          duration_seconds,
+          audio_url,
+          cover_url,
+          source_name,
+          source_url,
+          plays_count,
+          is_trending
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        [
+            title,
+            genre_id,
+            int(track_data.get("duration") or 210),
+            track_data.get("audio_url"),
+            track_data.get("cover_url"),
+            source_name,
+            source_url,
+            int(track_data.get("plays") or 0),
+            bool(track_data.get("is_trending")),
+        ],
+    )
+    track_id = cursor.fetchone()["id"]
+
+    cursor.execute(
+        """
+        INSERT INTO track_artists (track_id, artist_id, artist_order)
+        VALUES (%s, %s, 1)
+        ON CONFLICT (track_id, artist_id) DO NOTHING
+        """,
+        [track_id, artist_id],
+    )
+
+    return track_id
 
 
 app = Flask(__name__)
@@ -277,11 +388,90 @@ def auth_logout():
     return jsonify({"ok": True})
 
 
+@app.get("/db-api/favorites")
+def favorites():
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    rows = fetch_all(
+        """
+        SELECT
+            tracks.id,
+            tracks.title,
+            tracks.duration_seconds,
+            tracks.audio_url,
+            COALESCE(tracks.cover_url, albums.cover_url) AS cover_url,
+            tracks.source_name,
+            tracks.source_url,
+            tracks.plays_count,
+            tracks.is_trending,
+            albums.title AS album_name,
+            genres.name AS genre,
+            string_agg(artists.name, ', ' ORDER BY track_artists.artist_order) AS artist_name
+        FROM liked_tracks
+        JOIN tracks ON tracks.id = liked_tracks.track_id
+        LEFT JOIN albums ON albums.id = tracks.album_id
+        LEFT JOIN genres ON genres.id = tracks.genre_id
+        JOIN track_artists ON track_artists.track_id = tracks.id
+        JOIN artists ON artists.id = track_artists.artist_id
+        WHERE liked_tracks.user_id = %s
+        GROUP BY tracks.id, albums.title, albums.cover_url, genres.name, liked_tracks.created_at
+        ORDER BY liked_tracks.created_at DESC
+        """,
+        [user_id],
+    )
+
+    return jsonify([map_track(row) for row in rows])
+
+
+@app.post("/db-api/favorites")
+def add_favorite():
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    track_data = request.get_json(silent=True) or {}
+
+    with get_connection() as connection:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            track_id = ensure_track(cursor, track_data)
+            cursor.execute(
+                """
+                INSERT INTO liked_tracks (user_id, track_id)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id, track_id) DO NOTHING
+                """,
+                [user_id, track_id],
+            )
+
+    return jsonify({"ok": True})
+
+
+@app.delete("/db-api/favorites/<int:track_id>")
+def remove_favorite(track_id):
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM liked_tracks WHERE user_id = %s AND track_id = %s",
+                [user_id, track_id],
+            )
+
+    return jsonify({"ok": True})
+
+
 @app.get("/db-api/tracks")
 def tracks():
     limit = normalize_limit(request.args.get("limit"))
     search = (request.args.get("q") or "").strip()
     genre = (request.args.get("genre") or "").strip()
+    artist = (request.args.get("artist") or "").strip()
+    album = (request.args.get("album") or "").strip()
+    release_year = (request.args.get("release_year") or "").strip()
     sort = request.args.get("sort")
     params = []
     where = []
@@ -301,6 +491,18 @@ def tracks():
         where.append("genres.name = %s")
         params.append(genre)
 
+    if artist:
+        where.append("artists.name ILIKE %s")
+        params.append(f"%{artist}%")
+
+    if album:
+        where.append("albums.title ILIKE %s")
+        params.append(f"%{album}%")
+
+    if release_year:
+        where.append("albums.release_year = %s")
+        params.append(release_year)
+
     order_by = "tracks.created_at DESC" if sort == "newest" else "tracks.plays_count DESC"
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     params.append(limit)
@@ -318,6 +520,7 @@ def tracks():
             tracks.plays_count,
             tracks.is_trending,
             albums.title AS album_name,
+            albums.release_year AS release_year,
             genres.name AS genre,
             string_agg(artists.name, ', ' ORDER BY track_artists.artist_order) AS artist_name
         FROM tracks
@@ -326,7 +529,7 @@ def tracks():
         JOIN track_artists ON track_artists.track_id = tracks.id
         JOIN artists ON artists.id = track_artists.artist_id
         {where_sql}
-        GROUP BY tracks.id, albums.title, albums.cover_url, genres.name
+        GROUP BY tracks.id, albums.title, albums.release_year, albums.cover_url, genres.name
         ORDER BY {order_by}
         LIMIT %s
         """,
@@ -402,6 +605,130 @@ def playlists():
         [normalize_limit(request.args.get("limit"))],
     )
     return jsonify(rows)
+
+
+@app.post("/db-api/playlists")
+def create_playlist():
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    description = (data.get("description") or "").strip()
+
+    if not name:
+        return jsonify({"error": "Playlist name is required"}), 400
+
+    with get_connection() as connection:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO playlists (user_id, name, description)
+                VALUES (%s, %s, %s)
+                RETURNING id, name, description, cover_url, is_public, created_at
+                """,
+                [user_id, name, description],
+            )
+            playlist = cursor.fetchone()
+
+    return jsonify(playlist), 201
+
+
+@app.get("/db-api/playlists/<int:playlist_id>")
+def playlist_detail(playlist_id):
+    playlist = fetch_one(
+        """
+        SELECT
+            playlists.id,
+            playlists.name,
+            playlists.description,
+            playlists.cover_url,
+            playlists.is_public,
+            users.display_name AS owner_name,
+            COUNT(playlist_tracks.track_id)::int AS tracks_count
+        FROM playlists
+        LEFT JOIN users ON users.id = playlists.user_id
+        LEFT JOIN playlist_tracks ON playlist_tracks.playlist_id = playlists.id
+        WHERE playlists.id = %s
+        GROUP BY playlists.id, users.display_name
+        """,
+        [playlist_id],
+    )
+
+    if not playlist:
+        return jsonify({"error": "Playlist not found"}), 404
+
+    return jsonify(playlist)
+
+
+@app.get("/db-api/playlists/<int:playlist_id>/tracks")
+def playlist_tracks(playlist_id):
+    rows = fetch_all(
+        """
+        SELECT
+            tracks.id,
+            tracks.title,
+            tracks.duration_seconds,
+            tracks.audio_url,
+            COALESCE(tracks.cover_url, albums.cover_url) AS cover_url,
+            tracks.source_name,
+            tracks.source_url,
+            tracks.plays_count,
+            tracks.is_trending,
+            albums.title AS album_name,
+            genres.name AS genre,
+            string_agg(artists.name, ', ' ORDER BY track_artists.artist_order) AS artist_name,
+            playlist_tracks.position
+        FROM playlist_tracks
+        JOIN tracks ON tracks.id = playlist_tracks.track_id
+        LEFT JOIN albums ON albums.id = tracks.album_id
+        LEFT JOIN genres ON genres.id = tracks.genre_id
+        JOIN track_artists ON track_artists.track_id = tracks.id
+        JOIN artists ON artists.id = track_artists.artist_id
+        WHERE playlist_tracks.playlist_id = %s
+        GROUP BY tracks.id, albums.title, albums.cover_url, genres.name, playlist_tracks.position
+        ORDER BY playlist_tracks.position
+        """,
+        [playlist_id],
+    )
+
+    return jsonify([map_track(row) for row in rows])
+
+
+@app.post("/db-api/playlists/<int:playlist_id>/tracks")
+def add_playlist_track(playlist_id):
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+
+    track_data = request.get_json(silent=True) or {}
+
+    with get_connection() as connection:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                "SELECT id FROM playlists WHERE id = %s AND (user_id = %s OR user_id IS NULL)",
+                [playlist_id, user_id],
+            )
+            if not cursor.fetchone():
+                return jsonify({"error": "Playlist not found"}), 404
+
+            track_id = ensure_track(cursor, track_data)
+            cursor.execute(
+                "SELECT COALESCE(MAX(position), 0) + 1 AS next_position FROM playlist_tracks WHERE playlist_id = %s",
+                [playlist_id],
+            )
+            next_position = cursor.fetchone()["next_position"]
+            cursor.execute(
+                """
+                INSERT INTO playlist_tracks (playlist_id, track_id, position)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (playlist_id, track_id) DO NOTHING
+                """,
+                [playlist_id, track_id, next_position],
+            )
+
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,12 @@ import { withPopularFallback } from '@/data/popularMusic';
 import { getPopularPreviewTracks } from '@/api/itunesMusic';
 import { getAudiusTrendingTracks } from '@/api/audiusMusic';
 import { getDatabaseAlbums, getDatabaseArtists, getDatabasePlaylists, getDatabaseTracks } from '@/api/databaseMusic';
+import AuthPage from '@/pages/AuthPage';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export default function Home() {
   const { playTrack } = usePlayer();
+  const [showAuth, setShowAuth] = useState(false);
 
   const { data: tracks = [] } = useQuery({
     queryKey: ['tracks-home'],
@@ -79,7 +82,7 @@ export default function Home() {
         <section>
           <SectionHeader title="Trending Now" linkTo="/discover" />
           <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2">
-            {trending.map(t => <TrackCard key={t.id} track={t} tracks={trending} />)}
+            {trending.map(t => <TrackCard key={t.id} track={t} tracks={trending} onAuthRequired={() => setShowAuth(true)} />)}
           </div>
         </section>
       )}
@@ -89,7 +92,7 @@ export default function Home() {
         <section>
           <SectionHeader title="Popular Tracks" linkTo="/discover" />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {topTracks.map(t => <TrackCard key={t.id} track={t} tracks={topTracks} />)}
+            {topTracks.map(t => <TrackCard key={t.id} track={t} tracks={topTracks} onAuthRequired={() => setShowAuth(true)} />)}
           </div>
         </section>
       )}
@@ -146,6 +149,16 @@ export default function Home() {
           </p>
         </div>
       )}
+
+      <Dialog open={showAuth} onOpenChange={setShowAuth}>
+        <DialogContent className="max-w-[560px] border-0 bg-transparent p-0 shadow-none">
+          <AuthPage
+            embedded
+            title="Sign in to save tracks"
+            subtitle="Create an account or sign in to add tracks to your favorites."
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

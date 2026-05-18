@@ -51,7 +51,6 @@ export default function AuthPage({ embedded = false, title, subtitle }) {
 
   const handleGoogleClick = () => {
     if (!googleClientId) {
-      setError('Google Sign-In needs VITE_GOOGLE_CLIENT_ID in .env');
       return;
     }
 
@@ -83,8 +82,9 @@ export default function AuthPage({ embedded = false, title, subtitle }) {
   };
 
   return (
-    <main className={`${embedded ? '' : 'min-h-screen'} bg-background text-foreground flex items-center justify-center p-4`}>
+    <main className={`${embedded ? '' : 'min-h-screen'} bg-background/80 text-foreground flex items-center justify-center p-4`}>
       {!embedded && <div className="fixed inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(139,92,246,0.18),transparent_26%),radial-gradient(circle_at_75%_20%,rgba(37,99,235,0.12),transparent_30%)]" />}
+      {embedded && <div className="absolute inset-0 -z-10 backdrop-blur-md bg-background/55" />}
 
       <div className="relative w-full max-w-[528px]">
         {!embedded && <button className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -92,7 +92,7 @@ export default function AuthPage({ embedded = false, title, subtitle }) {
           Back
         </button>}
 
-        <section className="rounded-2xl border border-border bg-card/70 p-8 shadow-2xl shadow-black/30">
+        <section className="rounded-2xl border border-border bg-card/75 p-8 shadow-2xl shadow-black/30 backdrop-blur-xl">
           <div className="flex items-center gap-2 mb-5 text-primary">
             <div className="w-6 h-6 rounded-lg bg-primary/15 flex items-center justify-center">
               <Music2 className="w-4 h-4" />
@@ -174,8 +174,9 @@ export default function AuthPage({ embedded = false, title, subtitle }) {
             variant="outline"
             className="w-full h-12 rounded-xl bg-secondary/40"
             onClick={handleGoogleClick}
+            disabled={!googleClientId}
           >
-            Continue with Google
+            {googleClientId ? 'Continue with Google' : 'Google Sign-In is not configured'}
           </Button>
         </section>
       </div>

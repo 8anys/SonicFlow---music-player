@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getDatabasePlaylists } from '@/api/databaseMusic';
+import { createPlaylist } from '@/api/playlists';
 import AuthPage from '@/pages/AuthPage';
 import { useSonicAuth } from '@/lib/SonicAuthContext';
 
@@ -24,12 +25,11 @@ export default function Playlists() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async () => {
-      throw new Error('Playlist creation is not connected in local mode yet');
-    },
+    mutationFn: createPlaylist,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playlists-all'] });
       queryClient.invalidateQueries({ queryKey: ['playlists-sidebar'] });
+      queryClient.invalidateQueries({ queryKey: ['profile-playlists'] });
       setShowCreate(false);
       setName('');
       setDescription('');

@@ -7,6 +7,7 @@ function mapAudiusTrack(track) {
     title: track.title,
     artist_name: track.user?.name || track.user?.handle || 'Audius Artist',
     album_name: track.genre || 'Audius',
+    release_year: track.release_date ? new Date(track.release_date).getFullYear() : undefined,
     genre: track.genre?.toLowerCase() || 'electronic',
     duration: track.duration || 210,
     plays: track.play_count || 0,

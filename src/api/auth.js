@@ -8,10 +8,16 @@ async function authRequest(path, options = {}) {
     ...options,
   });
 
-  const data = await response.json().catch(() => ({}));
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json')
+    ? await response.json().catch(() => ({}))
+    : { error: await response.text().catch(() => '') };
 
   if (!response.ok) {
-    throw new Error(data.error || 'Authentication request failed');
+    const fallback = response.status === 500
+      ? 'Server error. Restart Python backend and check its terminal log.'
+      : 'Authentication request failed';
+    throw new Error(data.error || fallback);
   }
 
   return data;

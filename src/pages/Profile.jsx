@@ -1,12 +1,27 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Heart, ListMusic, Music2, User } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import AuthPage from '@/pages/AuthPage';
 import { useSonicAuth } from '@/lib/SonicAuthContext';
+import { getFavoriteTracks } from '@/api/favorites';
+import { getDatabasePlaylists } from '@/api/databaseMusic';
 
 export default function Profile() {
   const { user, isAuthenticated } = useSonicAuth();
+
+  const { data: favoriteTracks = [] } = useQuery({
+    queryKey: ['favorite-tracks'],
+    queryFn: getFavoriteTracks,
+    enabled: isAuthenticated,
+  });
+
+  const { data: playlists = [] } = useQuery({
+    queryKey: ['profile-playlists'],
+    queryFn: () => getDatabasePlaylists(50),
+    enabled: isAuthenticated,
+  });
 
   if (!isAuthenticated) {
     return (
@@ -42,7 +57,7 @@ export default function Profile() {
               <Heart className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{favoriteTracks.length}</p>
               <p className="text-xs text-muted-foreground">Liked Songs</p>
             </div>
           </div>
@@ -53,7 +68,7 @@ export default function Profile() {
               <ListMusic className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">0</p>
+              <p className="text-2xl font-bold">{playlists.length}</p>
               <p className="text-xs text-muted-foreground">Playlists</p>
             </div>
           </div>

@@ -8,7 +8,7 @@ async function getJson(path) {
   return response.json()
 }
 
-export async function getDatabaseTracks({ query = '', genre = 'all', limit = 50 } = {}) {
+export async function getDatabaseTracks({ query = '', genre = 'all', artist = '', album = '', releaseYear = '', limit = 50 } = {}) {
   const params = new URLSearchParams({
     limit: String(limit),
     sort: 'popular',
@@ -16,6 +16,9 @@ export async function getDatabaseTracks({ query = '', genre = 'all', limit = 50 
 
   if (query) params.set('q', query)
   if (genre && genre !== 'all') params.set('genre', genre)
+  if (artist) params.set('artist', artist)
+  if (album) params.set('album', album)
+  if (releaseYear) params.set('release_year', releaseYear)
 
   return getJson(`/db-api/tracks?${params}`)
 }
