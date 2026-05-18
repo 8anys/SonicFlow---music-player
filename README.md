@@ -61,11 +61,12 @@ database/seed.sql
 ```bash
 DATABASE_URL=postgres://postgres:your_postgres_password@127.0.0.1:5432/sonicflow
 FLASK_SECRET_KEY=sonicflow-secret
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
 VITE_SPOTIFY_CLIENT_ID=your_spotify_client_id
 VITE_SPOTIFY_REDIRECT_URI=http://127.0.0.1:5173/
 ```
 
-Spotify-змінні потрібні тільки для Spotify Web Playback SDK. Без них сайт також запускається.
+Google-змінна потрібна для кнопки авторизації через Google. Spotify-змінні потрібні тільки для Spotify Web Playback SDK. Без них сайт також запускається.
 
 Альтернативний варіант підключення до PostgreSQL:
 
@@ -101,6 +102,35 @@ http://127.0.0.1:5000/
 - створює таблиці, якщо їх ще немає
 - додає початкові дані
 - запускає API `/db-api`
+
+## Авторизація
+
+У проєкті є:
+
+- реєстрація через email і пароль
+- вхід через email і пароль
+- вихід з акаунта
+- авторизація через Google
+
+Для Google авторизації у Google Cloud Console створюється OAuth Client ID:
+
+```text
+https://console.cloud.google.com/apis/credentials
+```
+
+У налаштуваннях OAuth client додається Authorized JavaScript origin:
+
+```text
+http://127.0.0.1:5173
+```
+
+Client ID записується у `.env`:
+
+```bash
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+```
+
+Після зміни `.env` перезапускаються backend і frontend.
 
 ## Frontend
 

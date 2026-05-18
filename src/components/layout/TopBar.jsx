@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { usePlayer } from '@/lib/PlayerContext';
+import { useSonicAuth } from '@/lib/SonicAuthContext';
 
 export default function TopBar({ onMenuToggle }) {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { spotifyConnected, spotifyConfigured, loginSpotify, logoutSpotify } = usePlayer();
+  const { user, logout } = useSonicAuth();
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -64,8 +66,9 @@ export default function TopBar({ onMenuToggle }) {
             <DropdownMenuItem asChild><Link to="/profile">Profile</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/favorites">My Favorites</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/playlists">My Playlists</Link></DropdownMenuItem>
+            {user?.email && <DropdownMenuItem disabled>{user.email}</DropdownMenuItem>}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-muted-foreground">Local mode</DropdownMenuItem>
+            <DropdownMenuItem onClick={logout} className="text-destructive">Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

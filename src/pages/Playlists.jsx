@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getDatabasePlaylists } from '@/api/databaseMusic';
+import AuthPage from '@/pages/AuthPage';
+import { useSonicAuth } from '@/lib/SonicAuthContext';
 
 export default function Playlists() {
   const params = new URLSearchParams(window.location.search);
@@ -14,6 +16,7 @@ export default function Playlists() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useSonicAuth();
 
   const { data: playlists = [] } = useQuery({
     queryKey: ['playlists-all'],
@@ -71,20 +74,30 @@ export default function Playlists() {
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>Create Playlist</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Input placeholder="Playlist name" value={name} onChange={e => setName(e.target.value)} className="bg-secondary/50" />
-            <Textarea placeholder="Description (optional)" value={description} onChange={e => setDescription(e.target.value)} className="bg-secondary/50" />
-            <Button
-              className="w-full bg-primary hover:bg-primary/90"
-              disabled={!name.trim() || createMutation.isPending}
-              onClick={() => createMutation.mutate({ name: name.trim(), description: description.trim(), track_ids: [] })}
-            >
-              {createMutation.isPending ? 'Creating...' : 'Create'}
-            </Button>
-          </div>
+          {!isAuthenticated ? (
+            <AuthPage
+              embedded
+              title="Sign in to create playlists"
+              subtitle="Create an account or sign in to save your own SonicFlow playlists."
+            />
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Create Playlist</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input placeholder="Playlist name" value={name} onChange={e => setName(e.target.value)} className="bg-secondary/50" />
+                <Textarea placeholder="Description (optional)" value={description} onChange={e => setDescription(e.target.value)} className="bg-secondary/50" />
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90"
+                  disabled={!name.trim() || createMutation.isPending}
+                  onClick={() => createMutation.mutate({ name: name.trim(), description: description.trim(), track_ids: [] })}
+                >
+                  {createMutation.isPending ? 'Creating...' : 'Create'}
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

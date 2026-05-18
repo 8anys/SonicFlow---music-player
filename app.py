@@ -2,9 +2,12 @@ import os
 from pathlib import Path
 
 import psycopg2
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 from flask_cors import CORS
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 from psycopg2.extras import RealDictCursor
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -100,12 +103,177 @@ def map_track(row):
 
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "sonicflow-secret")
+CORS(app, supports_credentials=True)
+
+
+def get_current_user_id():
+    return session.get("user_id")
+
+
+def public_user(row):
+    if not row:
+        return None
+
+    return {
+        "id": row["id"],
+        "email": row["email"],
+        "display_name": row["display_name"],
+        "avatar_url": row["avatar_url"],
+        "auth_provider": row["auth_provider"],
+    }
+
+
+def fetch_one(sql, params=None):
+    rows = fetch_all(sql, params)
+    return rows[0] if rows else None
+
+
+def require_json_fields(data, fields):
+    missing = [field for field in fields if not str(data.get(field, "")).strip()]
+    if missing:
+        return f"Missing fields: {', '.join(missing)}"
+    return None
 
 
 @app.get("/db-api/health")
 def health():
     fetch_all("SELECT 1 AS ok")
+    return jsonify({"ok": True})
+
+
+@app.get("/db-api/auth/me")
+def auth_me():
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"user": None}), 401
+
+    user = fetch_one(
+        """
+        SELECT id, email, display_name, avatar_url, auth_provider
+        FROM users
+        WHERE id = %s
+        """,
+        [user_id],
+    )
+
+    if not user:
+        session.clear()
+        return jsonify({"user": None}), 401
+
+    return jsonify({"user": public_user(user)})
+
+
+@app.post("/db-api/auth/register")
+def auth_register():
+    data = request.get_json(silent=True) or {}
+    error = require_json_fields(data, ["display_name", "email", "password"])
+    if error:
+        return jsonify({"error": error}), 400
+
+    email = data["email"].strip().lower()
+    display_name = data["display_name"].strip()
+    password = data["password"]
+
+    if len(password) < 6:
+        return jsonify({"error": "Password must contain at least 6 characters"}), 400
+
+    password_hash = generate_password_hash(password)
+
+    try:
+        with get_connection() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO users (email, display_name, password_hash, auth_provider)
+                    VALUES (%s, %s, %s, 'local')
+                    RETURNING id, email, display_name, avatar_url, auth_provider
+                    """,
+                    [email, display_name, password_hash],
+                )
+                user = cursor.fetchone()
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "User with this email already exists"}), 409
+
+    session["user_id"] = user["id"]
+    return jsonify({"user": public_user(user)}), 201
+
+
+@app.post("/db-api/auth/login")
+def auth_login():
+    data = request.get_json(silent=True) or {}
+    error = require_json_fields(data, ["email", "password"])
+    if error:
+        return jsonify({"error": error}), 400
+
+    email = data["email"].strip().lower()
+    password = data["password"]
+    user = fetch_one(
+        """
+        SELECT id, email, display_name, avatar_url, auth_provider, password_hash
+        FROM users
+        WHERE email = %s
+        """,
+        [email],
+    )
+
+    if not user or not user["password_hash"] or not check_password_hash(user["password_hash"], password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    session["user_id"] = user["id"]
+    return jsonify({"user": public_user(user)})
+
+
+@app.post("/db-api/auth/google")
+def auth_google():
+    google_client_id = os.getenv("VITE_GOOGLE_CLIENT_ID") or os.getenv("GOOGLE_CLIENT_ID")
+    if not google_client_id:
+        return jsonify({"error": "Google Client ID is not configured"}), 400
+
+    data = request.get_json(silent=True) or {}
+    credential = data.get("credential")
+    if not credential:
+        return jsonify({"error": "Google credential is required"}), 400
+
+    try:
+        payload = id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            google_client_id,
+        )
+    except ValueError:
+        return jsonify({"error": "Invalid Google credential"}), 401
+
+    email = payload.get("email", "").lower()
+    google_sub = payload.get("sub")
+    display_name = payload.get("name") or email.split("@")[0]
+    avatar_url = payload.get("picture")
+
+    if not email or not google_sub:
+        return jsonify({"error": "Google account data is incomplete"}), 400
+
+    with get_connection() as connection:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users (email, display_name, google_sub, auth_provider, avatar_url)
+                VALUES (%s, %s, %s, 'google', %s)
+                ON CONFLICT (email) DO UPDATE SET
+                  google_sub = COALESCE(users.google_sub, EXCLUDED.google_sub),
+                  avatar_url = COALESCE(EXCLUDED.avatar_url, users.avatar_url)
+                RETURNING id, email, display_name, avatar_url, auth_provider
+                """,
+                [email, display_name, google_sub, avatar_url],
+            )
+            user = cursor.fetchone()
+
+    session["user_id"] = user["id"]
+    return jsonify({"user": public_user(user)})
+
+
+@app.post("/db-api/auth/logout")
+def auth_logout():
+    session.clear()
     return jsonify({"ok": True})
 
 

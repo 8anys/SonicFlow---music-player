@@ -1,42 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
-import { User, Heart, ListMusic, Music2 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import React from 'react';
 import { Link } from 'react-router-dom';
+import { Heart, ListMusic, Music2, User } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import AuthPage from '@/pages/AuthPage';
+import { useSonicAuth } from '@/lib/SonicAuthContext';
 
 export default function Profile() {
-  const [user, setUser] = useState(null);
+  const { user, isAuthenticated } = useSonicAuth();
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
-
-  const { data: liked = [] } = useQuery({
-    queryKey: ['liked-count'],
-    queryFn: () => base44.entities.LikedSong.list('-created_date', 200),
-  });
-
-  const { data: playlists = [] } = useQuery({
-    queryKey: ['playlists-count'],
-    queryFn: () => base44.entities.Playlist.list('-created_date', 50),
-  });
+  if (!isAuthenticated) {
+    return (
+      <AuthPage
+        embedded
+        title="Sign in to SonicFlow"
+        subtitle="Create an account or sign in to manage your profile, playlists, and library."
+      />
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-6">
-        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-2xl">
-          <User className="w-12 h-12 text-white" />
+        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-2xl overflow-hidden">
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <User className="w-12 h-12 text-white" />
+          )}
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">Profile</p>
-          <h1 className="text-3xl font-extrabold">{user?.full_name || 'Music Lover'}</h1>
+          <h1 className="text-3xl font-extrabold">{user?.display_name || 'Music Lover'}</h1>
           <p className="text-sm text-muted-foreground mt-1">{user?.email || ''}</p>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card className="glass p-5 rounded-xl">
           <div className="flex items-center gap-3">
@@ -44,7 +42,7 @@ export default function Profile() {
               <Heart className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{liked.length}</p>
+              <p className="text-2xl font-bold">0</p>
               <p className="text-xs text-muted-foreground">Liked Songs</p>
             </div>
           </div>
@@ -55,7 +53,7 @@ export default function Profile() {
               <ListMusic className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{playlists.length}</p>
+              <p className="text-2xl font-bold">0</p>
               <p className="text-xs text-muted-foreground">Playlists</p>
             </div>
           </div>
@@ -66,14 +64,13 @@ export default function Profile() {
               <Music2 className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">—</p>
+              <p className="text-2xl font-bold">-</p>
               <p className="text-xs text-muted-foreground">Hours Listened</p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Quick Links */}
       <div className="space-y-3">
         <h2 className="text-lg font-bold">Quick Links</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
